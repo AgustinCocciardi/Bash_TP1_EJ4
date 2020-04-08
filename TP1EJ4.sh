@@ -77,6 +77,32 @@ if [ $# -eq 4 ]; then
     archivos=$( find -maxdepth 1 -name "*.log")
 fi
 
+declare -A nombreEmpresas
+repetidos=0
+
+for f in $archivos
+    do
+        seRepitio=1
+        nuevoNombre=`echo $f | sed "s/log//" | tr -d '[0-9],-'./`
+        for a in ${nombreEmpresas[@]}
+        do
+            if [ "$a" == "$nuevoNombre" ]; then
+                seRepitio=0
+            fi
+        done 
+        if [ $seRepitio -eq 1 ]; then
+            nombreEmpresas[$repetidos]+=$nuevoNombre
+            let "repetidos++"
+        fi
+    done
+
+echo "Empresas: "
+echo
+for f in ${nombreEmpresas[@]}
+do
+    echo $f
+done
+
 #Si tengo 6 parámetros, quiere decir que me pasaron el nombre de una empresa 
 if [ $# -eq 6 ]; then
     empresa=$6  #me guardo el nombre de la empresa
@@ -112,10 +138,3 @@ if [ $# -eq 6 ]; then
     done
 fi
 
-declare -a nombresDeEmpresa
-
-
-#for i in $archivos
-#    do
-#        echo $i
-#    done
