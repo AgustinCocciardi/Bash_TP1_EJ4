@@ -49,6 +49,24 @@ if [ $# -ne 4 ]; then
     fi
 fi
 
+#valido que las letras sean correctas
+if [ $1 != "-f" ]; then
+    echo "El primer parámetro debe ser '-f'"
+    exit 100
+fi
+
+if [ $3 != "-z" ]; then
+    echo "El tercer parámetro debe ser '-z'"
+    exit 300
+fi
+
+if [ $# -eq 6 ]; then
+    if [ $5 != "-e" ]; then
+        echo "El quinto parámetro (si decide incluirlo) debe ser '-e'"
+        exit 500
+    fi
+fi
+
 #valido que la primer ruta pasada sea un directorio
 if [ ! -d "$2" ] 
 then
@@ -96,11 +114,45 @@ for f in $archivos
         fi
     done
 
-echo "Empresas: "
-echo
+
 for f in ${nombreEmpresas[@]}
 do
-    echo $f
+    cd "$2"
+    empresa=$f
+    archivos=$( find -maxdepth 1 -name "$empresa-[0-9]*.log")
+    contador=0  #contador para saber cuantos archivos tengo. lo necesitaré para validad datos más adelante
+    for i in $archivos  #cuento los archivos
+    do
+        let "contador++"
+    done
+    if [ $contador -ne 1 -a $contador -ne 0 ]; then
+
+        mayor=0     #uso esta bandera para saber cuál es el número de mayor tamaño
+        for f in $archivos  #recorro los archivos y me iré quedando con los números. así sabré cual es el mayor
+        do
+            nuevoNombre=`echo $f | tr -d '[a-z],-'./`
+            if [ $mayor -lt $nuevoNombre ]; then
+                mayor=$nuevoNombre
+            fi
+        done
+
+        comparacion="./$empresa-$mayor.log" #nombre del último archivo de log. lo usaré para comparar
+        cd "$2"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
+        for a in $archivos
+        do
+            if [ $a != $comparacion ]; then #me fijo si un archivo tiene nombre distinto al archivo que se va a quedar en la carpeta
+                zip -m ""$4"/$empresa" $a #si se cumple la condición, lo agrego al archivo zip
+            fi
+        done
+
+    else
+        if [ $contador -eq 0 ]; then
+            echo "La empresa $empresa no tiene archivos de Log en el directorio"
+        fi
+        if [ $contador -eq 1 ]; then
+            echo "La empresa $empresa solo tiene un archivo de Log en el directorio. No es necesario comprimir"
+        fi
+    fi
 done
 
 #Si tengo 6 parámetros, quiere decir que me pasaron el nombre de una empresa 
@@ -129,11 +181,11 @@ if [ $# -eq 6 ]; then
         fi
     done
     comparacion="./$empresa-$mayor.log" #nombre del último archivo de log. lo usaré para comparar
-    cd $2   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
+    cd "$2"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
     for a in $archivos
     do
         if [ $a != $comparacion ]; then #me fijo si un archivo tiene nombre distinto al archivo que se va a quedar en la carpeta
-            zip -m "$4/$empresa" $a #si se cumple la condición, lo agrego al archivo zip
+            zip -m ""$4"/$empresa" $a #si se cumple la condición, lo agrego al archivo zip
         fi
     done
 fi
