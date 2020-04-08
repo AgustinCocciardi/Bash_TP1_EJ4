@@ -8,6 +8,8 @@ function ayuda(){
     echo "./TP1EJ4.sh -f 'path_de_los_archivos_de_log' -z 'path_del_directorio_donde_se_hara_el_Zip' -e 'nombre_empresa'"
     echo "El parámetro -e 'nombre_empresa' es opcional. En caso de no enviarlo, el script aplicará para cada una de las empresas"
     echo "Los parámetros -f 'path_de_los_archivos_de_log' -z 'path_del_directorio_donde_se_hara_el_Zip' son obligatorios"
+    echo "El parámetro -f 'path_de_los_archivos_de_log' puede ser una ruta absoluta o relativa"
+    echo "El parámetro -z 'path_del_directorio_donde_se_hara_el_Zip' solo puede ser una ruta absoluta"
 	exit 0
 } 
 
@@ -24,7 +26,7 @@ function salir2(){
 	exit 2;
 }
 
-#Funcion que me hace salir del script si la ruta donde se hara el Zip ingresada no es válida
+#Funcion que me hace salir del script si la ruta donde se hara el Zip no es válida
 function salir25(){
     echo "La ruta del directorio donde se hará el Zip no es un directorio VALIDO";
 	exit 25;
@@ -49,7 +51,7 @@ if [ $# -ne 4 ]; then
     fi
 fi
 
-#valido que las letras sean correctas
+#valido que las letras sean correctas que pase como parámetro sean correctas
 if [ $1 != "-f" ]; then
     echo "El primer parámetro debe ser '-f'"
     exit 100
@@ -67,13 +69,13 @@ if [ $# -eq 6 ]; then
     fi
 fi
 
-#valido que la primer ruta pasada sea un directorio
+#valido que la ruta donde están los archivos de log sea un directorio valido
 if [ ! -d "$2" ] 
 then
 	salir2
 fi
 
-#valido que la ruta pasada tenga archivos
+#valido que la ruta donde están los archivos de log contenga archivos
 dato=$(ls -1 "$2" | wc -l)
 
 if [ "$dato" -eq 0 ] 
@@ -81,63 +83,71 @@ then
 	salir3
 fi
 
-#valido que la segunda ruta pasada sea un directorio
+#valido que la ruta donde se hará el zip sea un directorio valida
 if [ ! -d "$4" ] 
 then
 	salir25
 fi
 
-#Me muevo al directorio sobre el que quiero trabajar
+#me muevo a la ruta donde se encuentran los archivos de Log. Y después guardo la ruta (PWD) en una variable
+#si tengo rutas relativas, esto me será util. Si la ruta es absoluta, no hay diferencia
 cd "$2"
+origen=$PWD
 
-#Lo que tengo que revisar es si me pasaron 4 parámetros. Si esto es verdad, no tengo el nombre de ninguna empresa 
+#Me muevo al directorio sobre el que quiero trabajar
+cd "$origen"
+
+#Lo que tengo que revisar es si me pasaron 4 parámetros. 
+#Si esto es verdad, tengo que aplicar el procedimiento a todas las empresas que tengan archivos de log
 if [ $# -eq 4 ]; then
-    archivos=$( find -maxdepth 1 -name "*.log")
+    archivos=$( find -maxdepth 1 -name "*.log") #extraigo todos los archivos que tengan el sufijo .log, y solo del directorio actual
 fi
 
+#declaro un array asociativo para ir guardando los nombres de las empresas que tienen archivos de log en el directorio
 declare -A nombreEmpresas
+#uso esta variable para ir llenando mi array asociativo
 repetidos=0
 
 for f in $archivos
     do
-        seRepitio=1
-        nuevoNombre=`echo $f | sed "s/log//" | tr -d '[0-9],-'./`
-        for a in ${nombreEmpresas[@]}
+        seRepitio=1 #usaré esta bandera para saber si tengo que agregar el nombre de una empresa al array asociativo
+        nuevoNombre=`echo $f | sed "s/log//" | tr -d '[0-9],-'./`  #con el comando sed elimino el 'log' de la extención. con el comando tr elimino los caracteres como guiones, comas o numeros
+        for a in ${nombreEmpresas[@]}   #recorro el array asociativo para ir llenandolo con los nombres de las empresas
         do
-            if [ "$a" == "$nuevoNombre" ]; then
+            if [ "$a" == "$nuevoNombre" ]; then #si esta condiciòn se cumple, el nombre de la empresa ya está en el array
                 seRepitio=0
             fi
         done 
-        if [ $seRepitio -eq 1 ]; then
-            nombreEmpresas[$repetidos]+=$nuevoNombre
-            let "repetidos++"
+        if [ $seRepitio -eq 1 ]; then   #si esta condiciòn se cumple, el nombre de la empresa no está en el array, así que lo guardaré
+            nombreEmpresas[$repetidos]+=$nuevoNombre    #guardo el nombre de la empresa en una posiciòn del array
+            let "repetidos++"   #incremento la variable repetidos para no pisar el nombre que guardé
         fi
     done
 
-
+#recorro el array asociativo con el nombre de todas las empresas que tienen un archivo de log
 for f in ${nombreEmpresas[@]}
 do
-    cd "$2"
-    empresa=$f
-    archivos=$( find -maxdepth 1 -name "$empresa-[0-9]*.log")
+    cd "$origen"    #me muevo al directorio origen para no tener problemas 
+    empresa=$f      #iré guardando el nombre de cada empresa que esté en el array para trabajarlo
+    archivos=$( find -maxdepth 1 -name "$empresa-[0-9]*.log")       #me quedo con los archivos de log de esa empresa
     contador=0  #contador para saber cuantos archivos tengo. lo necesitaré para validad datos más adelante
     for i in $archivos  #cuento los archivos
     do
-        let "contador++"
+        let "contador++"    #incremento la variable contador
     done
-    if [ $contador -ne 1 -a $contador -ne 0 ]; then
+    if [ $contador -ne 1 -a $contador -ne 0 ]; then #si esta condiciòn se cumple, tengo que guardar como mìnimo un archivo en el .zip
 
         mayor=0     #uso esta bandera para saber cuál es el número de mayor tamaño
         for f in $archivos  #recorro los archivos y me iré quedando con los números. así sabré cual es el mayor
         do
-            nuevoNombre=`echo $f | tr -d '[a-z],-'./`
-            if [ $mayor -lt $nuevoNombre ]; then
+            nuevoNombre=`echo $f | tr -d '[a-z],-'./`   #extraigo el número del nombre del archivo. Si el archivo se llama 'personal-4.log', me quedo con el 4
+            if [ $mayor -lt $nuevoNombre ]; then    #si esta condiciòn se cumple, guardo el número que extraje como el mayor
                 mayor=$nuevoNombre
             fi
         done
 
         comparacion="./$empresa-$mayor.log" #nombre del último archivo de log. lo usaré para comparar
-        cd "$2"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
+        cd "$origen"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
         for a in $archivos
         do
             if [ $a != $comparacion ]; then #me fijo si un archivo tiene nombre distinto al archivo que se va a quedar en la carpeta
@@ -146,16 +156,16 @@ do
         done
 
     else
-        if [ $contador -eq 0 ]; then
+        if [ $contador -eq 0 ]; then    #si se cumple esta condiciòn, la empresa no tiene archivos de log en el directorio. 
             echo "La empresa $empresa no tiene archivos de Log en el directorio"
         fi
-        if [ $contador -eq 1 ]; then
+        if [ $contador -eq 1 ]; then    #si se cumple esta condiciòn, la empresa solo tiene un archivo de log en el directorio.
             echo "La empresa $empresa solo tiene un archivo de Log en el directorio. No es necesario comprimir"
         fi
     fi
 done
 
-#Si tengo 6 parámetros, quiere decir que me pasaron el nombre de una empresa 
+#Si tengo 6 parámetros, quiere decir que me pasaron el nombre de una empresa. Tendré que trabajar con esos archivos y puedo ignorar los demás
 if [ $# -eq 6 ]; then
     empresa=$6  #me guardo el nombre de la empresa
     archivos=$( find -maxdepth 1 -name "$empresa-[0-9]*.log") #me quedo con los archivos que sean de esa empresa
@@ -181,7 +191,7 @@ if [ $# -eq 6 ]; then
         fi
     done
     comparacion="./$empresa-$mayor.log" #nombre del último archivo de log. lo usaré para comparar
-    cd "$2"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
+    cd "$origen"   #me muevo al directorio donde están los archivos de Log. Así no tendré problemas
     for a in $archivos
     do
         if [ $a != $comparacion ]; then #me fijo si un archivo tiene nombre distinto al archivo que se va a quedar en la carpeta
@@ -189,4 +199,3 @@ if [ $# -eq 6 ]; then
         fi
     done
 fi
-
